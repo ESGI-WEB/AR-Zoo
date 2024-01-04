@@ -53,20 +53,15 @@ function init() {
             // mesh.scale.y = Math.random() * 2 + 1;
             // scene.add( mesh );
 
-
-            // display fox
-            const fox = new THREE.Object3D();
+            // try display fox
             const loader = new THREE.GLTFLoader();
             loader.load( 'animals/fox.glb', function ( gltf ) {
-                fox.add( gltf.scene );
+                gltf.scene.position.setFromMatrixPosition( reticle.matrix );
+                scene.add( gltf.scene );
+
             }, undefined, function ( error ) {
                 console.error( error );
             });
-            fox.position.copy( mesh.position );
-            fox.scale.set( 1, 1, 1 );
-            scene.add( fox );
-
-
 
         }
 
