@@ -1,0 +1,2 @@
+# Installation
+npx vite --host
