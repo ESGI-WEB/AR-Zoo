@@ -56,7 +56,8 @@ function init() {
             // try display fox
             const loader = new THREE.GLTFLoader();
             loader.load( 'animals/fox.glb', function ( gltf ) {
-                gltf.scene.position.setFromMatrixPosition( reticle.matrix );
+                reticle.matrix.decompose( gltf.scene.position, gltf.scene.quaternion, gltf.scene.scale );
+                gltf.scene.scale.y = Math.random() * 2 + 1;
                 scene.add( gltf.scene );
 
             }, undefined, function ( error ) {
