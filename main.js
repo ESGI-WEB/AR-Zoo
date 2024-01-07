@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ARButton } from 'three/addons/webxr/ARButton.js';
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 
 let container;
 let camera, scene, renderer;
@@ -40,29 +41,23 @@ function init() {
 
     //
 
-    const geometry = new THREE.CylinderGeometry( 0.1, 0.1, 0.2, 32 ).translate( 0, 0.1, 0 );
-
     function onSelect() {
 
         if ( reticle.visible ) {
 
-            // ca ca marche
-            // const material = new THREE.MeshPhongMaterial( { color: 0xffffff * Math.random() } );
-            // const mesh = new THREE.Mesh( geometry, material );
-            // reticle.matrix.decompose( mesh.position, mesh.quaternion, mesh.scale );
-            // mesh.scale.y = Math.random() * 2 + 1;
-            // scene.add( mesh );
-
-            // try display fox
-            const loader = new THREE.GLTFLoader();
-            loader.load( 'animals/fox.glb', function ( gltf ) {
-                reticle.matrix.decompose( gltf.scene.position, gltf.scene.quaternion, gltf.scene.scale );
-                gltf.scene.scale.y = Math.random() * 2 + 1;
-                scene.add( gltf.scene );
-
-            }, undefined, function ( error ) {
-                console.error( error );
-            });
+            const loader = new GLTFLoader();
+            loader.load( './animals/fox.glb', function ( gltf ) {
+                    const foxModel = gltf.scene;
+                    reticle.matrix.decompose( gltf.scene.position, gltf.scene.quaternion, gltf.scene.scale );
+                    foxModel.scale.set(0.05, 0.05, 0.05);
+                    scene.add( gltf.scene );
+                },
+                function ( xhr ) {
+                    console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+                },
+                function ( error ) {
+                    console.error( error );
+                });
 
         }
 
