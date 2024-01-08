@@ -10,6 +10,7 @@ let reticle;
 
 let hitTestSource = null;
 let hitTestSourceRequested = false;
+let animalModel;
 
 init();
 animate();
@@ -47,9 +48,12 @@ function init() {
 
             const loader = new GLTFLoader();
             loader.load( './animals/fox.glb', function ( gltf ) {
-                    const foxModel = gltf.scene;
+                    if (animalModel) {
+                        scene.remove(animalModel);
+                    }
+                    animalModel = gltf.scene;
                     reticle.matrix.decompose( gltf.scene.position, gltf.scene.quaternion, gltf.scene.scale );
-                    foxModel.scale.set(0.05, 0.05, 0.05);
+                    animalModel.scale.set(0.05, 0.05, 0.05);
                     scene.add( gltf.scene );
                 },
                 function ( xhr ) {
@@ -93,9 +97,7 @@ function onWindowResize() {
 //
 
 function animate() {
-
     renderer.setAnimationLoop( render );
-
 }
 
 function render( timestamp, frame ) {
