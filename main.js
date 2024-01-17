@@ -1,28 +1,35 @@
 import * as THREE from 'three';
 import {ARButton} from 'three/addons/webxr/ARButton.js';
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import {Text} from 'troika-three-text'
 
+const CONTROLLER_TOUCH_ID = 0;
 const animals = [
     {
         name: 'Fox 🦊',
+        speech: 'renard',
         scale: 0.1,
-        model: 'fox.glb'
+        file: 'fox'
     }, {
         name: 'Deer 🦌',
+        speech: 'cerf',
         scale: 0.8,
-        model: 'deer.glb'
+        file: 'deer'
     }, {
         name: 'Cat 🐈',
+        speech: 'chat',
         scale: 0.001,
-        model: 'cat.glb'
+        file: 'cat'
     }, {
         name: 'Fish 🐟',
+        speech: 'poisson',
         scale: 0.05,
-        model: 'fish.glb'
+        file: 'fish'
     }, {
         name: 'Horse 🐴',
+        speech: 'cheval',
         scale: 0.1,
-        model: 'horse.glb'
+        file: 'horse'
     }
 ];
 let animalSelectedIndex = 0;
@@ -33,6 +40,8 @@ let camera, scene, renderer;
 let controller;
 let reticle;
 let animalScene;
+let animalText;
+
 
 // Init the scene
 init();
@@ -61,11 +70,64 @@ function init() {
     const arButton = ARButton.createButton(renderer, {requiredFeatures: ['hit-test']});
     document.body.appendChild(arButton);
 
+    // instantiate a listener
+    const audioListener = new THREE.AudioListener();
+
+// add the listener to the camera
+    camera.add( audioListener );
+
+// instantiate audio object
+    const oceanAmbientSound = new THREE.Audio( audioListener );
+
+// add the audio object to the scene
+    scene.add( oceanAmbientSound );
+
+    const raycaster = new THREE.Raycaster();
+    const controllerPos = new THREE.Vector3(); // Vecteur pour stocker la position du contrôleur
+    const controllerDir = new THREE.Vector3(); // Vecteur pour stocker la direction du contrôleur
+    controller = renderer.xr.getController(CONTROLLER_TOUCH_ID);
+
     function onSelect() {
-        if (reticle.visible) {
+        controllerPos.setFromMatrixPosition(controller.matrixWorld);
+        controllerDir.set(0, 0, -1).transformDirection(controller.matrixWorld);
+
+        raycaster.set(controllerPos, controllerDir);
+
+        const intersects = raycaster.intersectObjects(animalScene ? [animalScene] : []);
+        // remove previous text if exists
+        if (animalText) {
+            scene.remove(animalText);
+        }
+
+
+        if (intersects.length > 0) {
+            if (!animalScene) {
+                return;
+            }
+            // display animal name over the animal
+            const animalSelected = animals[animalSelectedIndex];
+
+            animalText = new Text();
+            animalText.text = animalSelected.name
+            animalText.fontSize = 0.1
+            animalText.color = 0x9966FF
+            // set position of text over the animal
+            // Get the bounding box of the loaded object
+            const boundingBox = new THREE.Box3().setFromObject(animalScene);
+
+            // Calculate the height of the bounding box
+            const height = boundingBox.max.y - boundingBox.min.y;
+
+            // Set the position of the text above the animalScene
+            animalText.position.set(animalScene.position.x + 0.2, animalScene.position.y + height, animalScene.position.z);
+            animalText.sync()
+            scene.add(animalText)
+        } else if (reticle.visible) {
+            // update animal index to next
+            animalSelectedIndex = (animalSelectedIndex + 1) % animals.length;
             const animalSelected = animals[animalSelectedIndex];
             const loader = new GLTFLoader();
-            loader.load(`./animals/${animalSelected.model}`, function (gltf) {
+            loader.load(`./animals/${animalSelected.file}.glb`, function (gltf) {
                 if (animalScene) {
                     scene.remove(animalScene);
                 }
@@ -75,12 +137,9 @@ function init() {
                 scene.add(gltf.scene);
             });
 
-            // update animal index to next
-            animalSelectedIndex = (animalSelectedIndex + 1) % animals.length;
         }
     }
 
-    controller = renderer.xr.getController(0);
     controller.addEventListener('select', onSelect);
     scene.add(controller);
 
@@ -93,6 +152,49 @@ function init() {
     scene.add(reticle);
 
     window.addEventListener('resize', onWindowResize);
+
+    // when voice recognition is available, try to recognize speech animal name and play sound
+    if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'fr-FR';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = function(event) {
+            if (!animalScene) {
+                return;
+            }
+            
+            const speechResult = event.results[0][0].transcript;
+            const animalSelected = animals[animalSelectedIndex];
+            console.log(speechResult, animalSelected.speech, speechResult.toLowerCase().includes(animalSelected.speech.toLowerCase()))
+            if (speechResult.toLowerCase().includes(animalSelected.speech.toLowerCase())) {
+                // play cat sound v1
+                // const audio = new Audio('./sounds/cat.mp3');
+                // audio.play();
+
+                // v2
+                // Charger et jouer le fichier audio associé à l'animal
+                const audioLoader = new THREE.AudioLoader();
+
+                // Assurez-vous de placer le fichier audio dans le dossier correct
+                audioLoader.load(`./sounds/${animalSelected.file}.mp3`, function (buffer) {
+                    oceanAmbientSound.setBuffer(buffer);
+                    oceanAmbientSound.position.copy(animalScene.position);
+                    oceanAmbientSound.play();
+                });
+            }
+        };
+
+        recognition.onend = function () {
+            // Redémarrez la reconnaissance en cas d'erreur
+            console.log('end')
+            recognition.start();
+        }
+
+        recognition.start();
+    }
 }
 
 function onWindowResize() {
