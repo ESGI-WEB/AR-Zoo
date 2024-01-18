@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { ARButton } from 'three/addons/webxr/ARButton.js';
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { Text } from 'troika-three-text';
+import {TextGeometry} from 'three/addons/geometries/TextGeometry.js';
+import {ARButton} from 'three/addons/webxr/ARButton.js';
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import {FontLoader} from "three/addons";
 
 class ARAnimalApp {
     constructor() {
@@ -12,7 +13,7 @@ class ARAnimalApp {
         this.controller = null;
         this.reticle = null;
         this.animalScene = null;
-        this.animalText = null;
+        this.animalInfoCard = null;
 
         this.animalSelectedIndex = 0;
         this.hitTestSource = null;
@@ -52,7 +53,7 @@ class ARAnimalApp {
     }
 
     createRenderer() {
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.xr.enabled = true;
@@ -60,7 +61,7 @@ class ARAnimalApp {
     }
 
     setupARButton() {
-        const arButton = ARButton.createButton(this.renderer, { requiredFeatures: ['hit-test'] });
+        const arButton = ARButton.createButton(this.renderer, {requiredFeatures: ['hit-test']});
         document.body.appendChild(arButton);
     }
 
@@ -90,6 +91,10 @@ class ARAnimalApp {
     }
 
     onSelect() {
+        if (this.animalInfoCard) {
+            return this.hideAnimalInfo();
+        }
+
         const controllerPos = new THREE.Vector3().setFromMatrixPosition(this.controller.matrixWorld);
         const controllerDir = new THREE.Vector3(0, 0, -1).transformDirection(this.controller.matrixWorld);
         const raycaster = new THREE.Raycaster(controllerPos, controllerDir);
@@ -97,34 +102,67 @@ class ARAnimalApp {
         const intersects = raycaster.intersectObjects(this.animalScene ? [this.animalScene] : []);
 
         if (intersects.length > 0) {
-            this.displayAnimalText(intersects);
+            return this.displayAnimalInfo();
         } else if (this.reticle.visible) {
-            this.loadNextAnimal();
+            return this.loadNextAnimal();
         }
     }
 
-    displayAnimalText() {
-        const animalSelected = ANIMALS[this.animalSelectedIndex];
+    displayAnimalInfo() {
+        const loader = new FontLoader();
 
-        if (this.animalText) {
-            this.scene.remove(this.animalText);
+        loader.load('fonts/Lemon_Regular.json', (font) => {
+            const animalSelected = ANIMALS[this.animalSelectedIndex];
+
+            const textGeometry = new TextGeometry(`${animalSelected.name}\n\n${animalSelected.description}`, {
+                font: font,
+                size: 0.003,
+                height: 0.001,
+            });
+
+            const textMaterial = new THREE.MeshBasicMaterial({
+                color: 0xFFFFFF,
+                transparent: true,
+                opacity: 0.8,
+            });
+
+            const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+
+            const backgroundGeometry = new THREE.PlaneGeometry(window.innerWidth, window.innerHeight);
+            const backgroundMaterial = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                transparent: true,
+                opacity: 0.7,
+            });
+
+            const backgroundMesh = new THREE.Mesh(backgroundGeometry, backgroundMaterial);
+
+            const textBoundingBox = new THREE.Box3().setFromObject(textMesh);
+            textMesh.position.set(
+                -textBoundingBox.max.x / 2,
+                0.1,
+                0
+            );
+
+            this.animalInfoCard = new THREE.Object3D(); // Utilisez un objet de référence
+            this.animalInfoCard.add(textMesh);
+            this.animalInfoCard.add(backgroundMesh);
+
+            this.scene.add(this.animalInfoCard);
+        });
+    }
+
+    hideAnimalInfo() {
+        this.scene.remove(this.animalInfoCard);
+        this.animalInfoCard = null;
+    }
+
+    updateAnimalInfoPosition() {
+        if (this.animalInfoCard) {
+            // Mettez à jour la position en fonction de la caméra
+            this.animalInfoCard.position.set(0, 0, -0.2).applyMatrix4(this.camera.matrixWorld);
+            this.animalInfoCard.quaternion.setFromRotationMatrix(this.camera.matrixWorld);
         }
-
-        this.animalText = new Text();
-        this.animalText.text = animalSelected.name;
-        this.animalText.fontSize = 0.1;
-        this.animalText.color = 0x9966FF;
-
-        const boundingBox = new THREE.Box3().setFromObject(this.animalScene);
-        const height = boundingBox.max.y - boundingBox.min.y;
-
-        this.animalText.position.set(
-            this.animalScene.position.x + 0.2,
-            this.animalScene.position.y + height,
-            this.animalScene.position.z
-        );
-        this.animalText.sync();
-        this.scene.add(this.animalText);
     }
 
     loadNextAnimal() {
@@ -167,7 +205,7 @@ class ARAnimalApp {
 
         if (this.hitTestSourceRequested === false) {
             session.requestReferenceSpace('viewer').then((referenceSpace) => {
-                session.requestHitTestSource({ space: referenceSpace }).then((source) => {
+                session.requestHitTestSource({space: referenceSpace}).then((source) => {
                     this.hitTestSource = source;
                 });
             });
@@ -192,6 +230,7 @@ class ARAnimalApp {
             }
         }
 
+        this.updateAnimalInfoPosition();
         this.renderer.render(this.scene, this.camera);
     }
 
@@ -211,7 +250,7 @@ class ARAnimalApp {
                 const speechResult = event.results[0][0].transcript;
                 const animalSelected = ANIMALS[this.animalSelectedIndex];
 
-                if (speechResult.toLowerCase().includes(animalSelected.speech.toLowerCase())) {
+                if (speechResult.toLowerCase().includes(animalSelected.name.toLowerCase())) {
                     const audioLoader = new THREE.AudioLoader();
 
                     audioLoader.load(`./sounds/${animalSelected.file}.mp3`, (buffer) => {
@@ -236,32 +275,32 @@ const CONTROLLER_TOUCH_ID = 0;
 
 const ANIMALS = [
     {
-        name: 'Fox 🦊',
-        speech: 'renard',
+        name: 'Renard',
+        description: 'Animal très malin et rusé,\n souvent représenté comme un voleur de poules.\n Il mesure entre 60 et 90 cm de long,\n et pèse entre 5 et 10 kg.\n Il vit dans les forêts ou les champs.',
         scale: 0.1,
         file: 'fox'
     },
     {
-        name: 'Deer 🦌',
-        speech: 'cerf',
+        name: 'Cerf',
+        description: 'Le cerf est un animal majestueux,\n qui vit dans les forêts.\n Il mesure entre 1,5 et 2 mètres de long,\n et pèse entre 100 et 200 kg. Il est herbivore,\n et se nourrit de feuilles, de fruits et de\n champignons.',
         scale: 0.8,
         file: 'deer'
     },
     {
-        name: 'Cat 🐈',
-        speech: 'chat',
+        name: 'Chat',
+        description: 'Le chat est un animal domestique,\n qui vit dans les maisons.\n Il mesure entre 30 et 40 cm de long,\n et pèse entre 3 et 5 kg.\n Il est carnivore, et se nourrit de viande\n et de poisson.',
         scale: 0.001,
         file: 'cat'
     },
     {
-        name: 'Fish 🐟',
-        speech: 'poisson',
-        scale: 0.05,
+        name: 'Poisson',
+        description: 'Les poissons sont des animaux aquatiques,\n qui vivent dans les mers et les océans.\n Ils se nourrissent de plancton.',
+        scale: 0.1,
         file: 'fish'
     },
     {
-        name: 'Horse 🐴',
-        speech: 'cheval',
+        name: 'Cheval',
+        description: 'Le cheval est un animal domestique,\n qui vit dans les écuries.\n Il mesure entre 1,4 et 1.7 mètres de long,\n et pèse entre 500 et 1000 kg. Il est herbivore,\n et se nourrit d\'herbe et de foin.',
         scale: 0.1,
         file: 'horse'
     }
