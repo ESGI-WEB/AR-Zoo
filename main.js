@@ -269,6 +269,10 @@ class ARAnimalApp {
                 recognition.start();
             };
 
+            recognition.onerror = () => {
+                recognition.start();
+            };
+
             recognition.start();
         }
     }
