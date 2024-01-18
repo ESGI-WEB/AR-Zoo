@@ -103,7 +103,7 @@ class ARAnimalApp {
         }
     }
 
-    displayAnimalText(intersects) {
+    displayAnimalText() {
         const animalSelected = ANIMALS[this.animalSelectedIndex];
 
         if (this.animalText) {
