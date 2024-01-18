@@ -14,6 +14,7 @@ class ARAnimalApp {
         this.reticle = null;
         this.animalScene = null;
         this.animalInfoCard = null;
+        this.animalSound = null;
 
         this.animalSelectedIndex = 0;
         this.hitTestSource = null;
@@ -69,8 +70,9 @@ class ARAnimalApp {
         const audioListener = new THREE.AudioListener();
         this.camera.add(audioListener);
 
-        const oceanAmbientSound = new THREE.Audio(audioListener);
-        this.scene.add(oceanAmbientSound);
+        const animalSound = new THREE.Audio(audioListener);
+        this.animalSound = animalSound;
+        this.scene.add(animalSound);
     }
 
     createController() {
@@ -254,10 +256,11 @@ class ARAnimalApp {
                     const audioLoader = new THREE.AudioLoader();
 
                     audioLoader.load(`./sounds/${animalSelected.file}.mp3`, (buffer) => {
-                        const oceanAmbientSound = new THREE.Audio(this.camera.children[0]);
-                        oceanAmbientSound.setBuffer(buffer);
-                        oceanAmbientSound.position.copy(this.animalScene.position);
-                        oceanAmbientSound.play();
+                        this.animalSound.stop();
+                        this.animalSound.setBuffer(buffer);
+                        this.animalSound.setLoop(false);
+                        this.animalSound.position.copy(this.animalScene.position);
+                        this.animalSound.play();
                     });
                 }
             };
