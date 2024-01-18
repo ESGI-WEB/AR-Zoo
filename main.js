@@ -31,7 +31,7 @@ class ARAnimalApp {
         this.createAudio();
         this.createController();
         this.createReticle();
-        this.setupEventListeners();
+        this.setupResizeListener();
         this.setupSpeechRecognition();
     }
 
@@ -143,7 +143,7 @@ class ARAnimalApp {
         });
     }
 
-    setupEventListeners() {
+    setupResizeListener() {
         window.addEventListener('resize', () => this.onWindowResize());
     }
 
